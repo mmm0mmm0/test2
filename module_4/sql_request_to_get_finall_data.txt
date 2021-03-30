@@ -1,0 +1,76 @@
+with 
+aircharfts as
+(
+    select
+        se.aircraft_code,
+        ai.model,
+        count (case when se.fare_conditions = 'Economy' then se.fare_conditions end) as ticket_economy,
+        count (case when se.fare_conditions = 'Business' then se.fare_conditions end) as ticket_business,
+        count (case when se.fare_conditions = 'Comfort' then se.fare_conditions end) as ticket_comfort
+    from 
+        dst_project.seats as se
+        join dst_project.aircrafts as ai on ai.aircraft_code = se.aircraft_code
+    group by
+        se.aircraft_code,
+        ai.model
+),
+ticket_class as
+(
+    select 
+        tf.flight_id,
+        count (case when tf.fare_conditions = 'Economy' then tf.fare_conditions end) as ticket_economy,
+        count (case when tf.fare_conditions = 'Business' then tf.fare_conditions end) as ticket_business,
+        count (case when tf.fare_conditions = 'Comfort' then tf.fare_conditions end) as ticket_comfort
+    from
+        dst_project.ticket_flights as tf
+    group by 
+        tf.flight_id
+),
+sum_of_sold_tickets as
+(
+    select
+        tf.flight_id,
+        sum (case when tf.fare_conditions = 'Economy' then tf.amount end) as sum_ticket_economy,
+        sum (case when tf.fare_conditions = 'Business' then tf.amount end) as sum_ticket_business,
+        sum (case when tf.fare_conditions = 'Comfort' then tf.amount end) as sum_ticket_comfort
+    from
+        dst_project.ticket_flights as tf
+    group by 
+        tf.flight_id
+)
+
+select 
+    fl.*,
+    ai.model,
+    ap1.city as from_city, 
+    ap2.city as to_city,
+    air.ticket_economy total_economy_seats,
+    tc.ticket_economy sold_economy_seats,
+    sost.sum_ticket_economy,
+    air.ticket_business total_business_seats,
+    tc.ticket_business sold_business_seats,
+    sost.sum_ticket_business,
+    air.ticket_comfort total_comfort_seats,
+    tc.ticket_comfort sold_comfort_seats,
+    sost.sum_ticket_comfort
+from 
+    dst_project.flights as fl
+    left join ticket_class as tc on tc.flight_id = fl.flight_id
+    left join aircharfts as air on air.aircraft_code = fl.aircraft_code
+    left join sum_of_sold_tickets as sost on sost.flight_id = fl.flight_id
+    join dst_project.aircrafts as ai on ai.aircraft_code = fl.aircraft_code
+    join dst_project.airports as ap1 on fl.departure_airport = ap1.airport_code
+    join dst_project.airports as ap2 on fl.arrival_airport = ap2.airport_code
+
+where 
+    -- по всем рейсам в/из Анапы
+    (fl.departure_airport = 'AAQ' or fl.arrival_airport = 'AAQ')  and
+    -- исключим Новокузнецк, т.к. по нему нет данных
+    (fl.flight_no != 'PG0194' and fl.flight_no != 'PG0195')  and
+    -- за всю зиму
+    (date_trunc('month', fl.scheduled_departure) in ('2017-01-01','2017-02-01', '2016-12-01'))
+    -- за 2016-12
+    -- (date_trunc('month', fl.scheduled_departure) in ('2016-12-01'))
+    
+order by
+    fl.actual_departure

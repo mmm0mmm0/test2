@@ -1,0 +1,264 @@
+
+-- Задание 4.1
+-- База данных содержит список аэропортов практически всех крупных городов России. В большинстве городов есть только один аэропорт. 
+-- Исключение составляет:
+select 
+    ap.city,
+    count(ap.airport_name) as count1
+from 
+    dst_project.airports as ap
+group by 
+    ap.city
+having
+    count(ap.airport_name) > 1
+order by count1 desc;
+
+
+-- Задание 4.2
+--  Таблица рейсов содержит всю информацию о прошлых, текущих и запланированных рейсах. Сколько всего статусов для рейсов определено в таблице?
+select 
+    count(distinct fl.status)
+from 
+    dst_project.flights as fl;
+
+-- Какое количество самолетов находятся в воздухе на момент среза в базе (статус рейса «самолёт уже вылетел и находится в воздухе»)
+select 
+    count (fl.flight_id)
+from 
+    dst_project.flights as fl
+where
+    fl.status = 'Departed';
+
+-- Места определяют схему салона каждой модели. Сколько мест имеет самолет модели 773 (Boeing 777-300)
+select 
+    se.aircraft_code,
+    ai.model,
+    count(se.seat_no) seats_num
+from 
+    dst_project.seats as se
+    join dst_project.aircrafts as ai on ai.aircraft_code = se.aircraft_code
+where
+    ai.model = 'Boeing 777-300'
+group by 
+    se.aircraft_code,
+    ai.model;
+
+--  Сколько состоявшихся (фактических) рейсов было совершено между 1 апреля 2017 года и 1 сентября 2017 года?
+select
+    count (fl.flight_id)
+from 
+    dst_project.flights as fl
+where
+    fl.status = 'Arrived' and
+    (fl.actual_arrival between '2017-04-01' and '2017-09-01');
+
+
+-- Задание 4.3
+-- Сколько всего рейсов было отменено по данным базы?
+select
+    count(fl.flight_id)
+from 
+    dst_project.flights as fl
+where
+    fl.status = 'Cancelled';
+
+-- Сколько самолетов моделей типа Boeing, Sukhoi Superjet, Airbus находится в базе авиаперевозок?
+-- Boeing
+select 
+    count(*) 
+from 
+    dst_project.aircrafts as ai
+where
+    ai.model like '%Boeing%';
+-- Sukhoi Superjet
+select 
+    count(*) 
+from 
+    dst_project.aircrafts as ai
+where
+    ai.model like '%Sukhoi Superjet%';
+-- Airbus
+select 
+    count(*) 
+from 
+    dst_project.aircrafts as ai
+where
+    ai.model like '%Airbus%';
+
+-- В какой части (частях) света находится больше аэропортов?
+select
+    substring (ap.timezone, 1, POSITION('/' in ap.timezone)-1) as continent,
+    count (substring (ap.timezone, 1, POSITION('/' in ap.timezone)-1)) as count1
+from dst_project.airports as ap
+group by
+    continent
+order by
+    count1 desc,
+    continent asc;
+
+-- У какого рейса была самая большая задержка прибытия за все время сбора данных? Введите id рейса (flight_id).
+select
+    fl.flight_id,
+    fl.actual_arrival-fl.scheduled_arrival as departure
+from 
+    dst_project.flights as fl
+where 
+    fl.status = 'Arrived'
+order by
+    departure desc
+limit 1;
+
+
+-- Задание 4.4
+-- Когда был запланирован самый первый вылет, сохраненный в базе данных?
+select
+    fl.flight_id,
+    fl.scheduled_departure as sheduled
+from 
+    dst_project.flights as fl
+order by
+    sheduled asc
+limit 1;
+
+-- Сколько минут составляет запланированное время полета в самом длительном рейсе?
+select
+    fl.flight_id,
+    to_char((fl.scheduled_arrival-fl.scheduled_departure), 'HH24:MI') as palnned_flight_time,
+    extract(epoch FROM cast(fl.scheduled_arrival AS timestamp) - cast(fl.scheduled_departure AS timestamp))/60 as planned_flight_time_in_minute
+from 
+    dst_project.flights as fl
+order by
+    palnned_flight_time_in_minute desc
+limit 1;
+
+-- Между какими аэропортами пролегает самый длительный по времени запланированный рейс?
+select
+    fl.flight_id,
+    fl.departure_airport,
+    fl.arrival_airport,
+    extract(epoch FROM cast(fl.scheduled_arrival AS timestamp) - cast(fl.scheduled_departure AS timestamp))/60 as palnned_flight_time_in_minute
+from 
+    dst_project.flights as fl
+order by
+    palnned_flight_time_in_minute desc
+limit 1;
+
+-- Сколько составляет средняя дальность полета среди всех самолетов в минутах? Секунды округляются в меньшую сторону (отбрасываются до минут)
+select 
+    avg(extract(epoch FROM cast(fl.scheduled_arrival AS timestamp) - cast(fl.scheduled_departure AS timestamp))/60)::int
+from 
+    dst_project.flights as fl
+where
+    fl.status = 'Arrived';
+
+
+-- Задание 4.5
+-- Мест какого класса у SU9 больше всего?
+select
+    se.fare_conditions,
+    count(se.seat_no) as count1
+from 
+    dst_project.seats as se
+where
+    se.aircraft_code = 'SU9'
+group by
+    se.fare_conditions
+order by 
+    count1 desc
+limit 1;
+
+-- Какую самую минимальную стоимость составило бронирование за всю историю?
+select
+    bo.total_amount
+from 
+    dst_project.bookings as bo
+order by
+    bo.total_amount
+limit 1;
+
+-- Какой номер места был у пассажира с id = 4313 788533?
+select 
+    bp.seat_no 
+from 
+    dst_project.tickets as ti
+    join dst_project.boarding_passes as bp on ti.ticket_no = bp.ticket_no
+where
+    ti.passenger_id = '4313 788533';
+
+
+-- Задание 5.1
+-- Анапа — курортный город на юге России. Сколько рейсов прибыло в Анапу за 2017 год?
+select 
+    count(*)
+from
+    dst_project.flights as fl
+    join dst_project.airports as ap on fl.arrival_airport = ap.airport_code
+where
+    ap.city like '%Anapa%' and 
+    fl.status = 'Arrived' and
+    (fl.actual_arrival between '2017-01-01' and '2017-12-31');
+
+-- Сколько рейсов из Анапы вылетело зимой 2017 года?
+select 
+    count(*)
+from
+    dst_project.flights as fl
+    join dst_project.airports as ap on fl.departure_airport = ap.airport_code
+where
+    ap.city like '%Anapa%' and 
+    fl.status = 'Arrived' and
+    (fl.actual_arrival between '2017-01-01' and '2017-03-01');
+
+-- Посчитайте количество отмененных рейсов из Анапы за все время.
+select 
+    count(*)
+from
+    dst_project.flights as fl
+    join dst_project.airports as ap on fl.departure_airport = ap.airport_code
+where
+    ap.city like '%Anapa%' and 
+    fl.status = 'Cancelled'
+
+-- Сколько рейсов из Анапы не летают в Москву?
+select 
+    count(fl.flight_no)
+from
+    dst_project.flights as fl
+    join dst_project.airports as ap on fl.departure_airport = ap.airport_code
+where
+    ap.city like '%Anapa%' and
+    fl.arrival_airport not in (
+        select ap.airport_code 
+        from dst_project.airports as ap
+        where ap.city = 'Moscow'
+        )
+
+-- Какая модель самолета летящего на рейсах из Анапы имеет больше всего мест?
+with aircharfts as
+(
+    select
+        ai.aircraft_code,
+        ai.model,
+        count(se.seat_no) count1
+    from 
+        dst_project.seats as se
+        join dst_project.aircrafts as ai on ai.aircraft_code = se.aircraft_code
+    group by
+        ai.aircraft_code,
+        ai.model
+)
+select 
+    ai.model, air.count1
+from 
+    dst_project.flights as fl
+    join dst_project.airports as ap on fl.departure_airport = ap.airport_code
+    join dst_project.aircrafts as ai on ai.aircraft_code = fl.aircraft_code
+    join aircharfts as air on air.aircraft_code = fl.aircraft_code
+where
+    ap.city like '%Anapa%'
+group by
+    ai.model,
+    air.count1
+order by
+    air.count1 desc
+limit 1;
